@@ -127,6 +127,21 @@ npm run build
 npm start
 ```
 
+### 5. Gestione con PM2 e Avvio Automatico (Background Daemon)
+Per eseguire l'applicativo come servizio in background gestito da PM2 e farlo riavviare automaticamente all'avvio del sistema:
+```bash
+# Avvio con file di configurazione
+pm2 start ecosystem.config.cjs
+
+# Configurazione avvio automatico al boot
+pm2 startup
+pm2 save
+
+# Monitoraggio e log
+pm2 logs ai-anonymizer
+pm2 status
+```
+
 ---
 
 ## 🔒 Sicurezza & Privacy (Zero-Leak)
