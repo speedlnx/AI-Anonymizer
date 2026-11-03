@@ -1,78 +1,127 @@
 # AI Anonymizer 🛡️🇮🇹
 
-Applicativo web-based moderno progettato per **anonimizzare e de-anonimizzare bidirezionalmente i prompt inviati e ricevuti da e verso modelli di Intelligenza Artificiale** (es. OpenAI ChatGPT, Anthropic Claude).
+[![Next.js](https://img.shields.io/badge/Next.js-16.4.4-black?style=flat&logo=next.js)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-blue?style=flat&logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat&logo=typescript)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38bdf8?style=flat&logo=tailwind-css)](https://tailwindcss.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-Garantisce il rispetto rigoroso dei formati e standard italiani e internazionali con architettura **Zero-Leak**: nessun dato personale o sensibile in chiaro viene mai trasmesso all'esterno.
+**AI Anonymizer** è un applicativo web moderno sviluppato per **anonimizzare e de-anonimizzare bidirezionalmente i prompt inviati e ricevuti da e verso modelli di Intelligenza Artificiale** (OpenAI ChatGPT, Anthropic Claude, ecc.).
 
----
-
-## 🚀 Caratteristiche Principali
-
-- **Anonimizzazione Standard Italiani & Internazionali**:
-  - 🔑 **API Keys & Tokens**: OpenAI (`sk-...`), Anthropic (`sk-ant-...`), AWS Access Keys (`AKIA...`), GitHub (`ghp_...`), JWT, Stripe, token bearer e chiavi generiche.
-  - ✉️ **Email addresses**: Riconoscimento RFC 5322.
-  - 🌐 **URLs**: Link web (http, https, ftp, domini).
-  - 🖥️ **MAC addresses**: Formati standard esadecimale (`XX:XX:XX:XX:XX:XX`, `XXXX.XXXX.XXXX`).
-  - 📡 **IP addresses**: Indirizzi IPv4 e IPv6 con validazione ottetti.
-  - 🆔 **UUIDs**: UUID v1-v5 e GUID 8-4-4-4-12.
-  - 🏦 **IBAN & Bank codes**: IBAN italiano (27 caratteri `IT...`), IBAN internazionali (con algoritmo MOD-97), codici bancari **ABI**, **CAB** e **SWIFT/BIC**.
-  - 💳 **Credit card numbers**: Visa, MasterCard, American Express, Diners, con verifica **algoritmo di Luhn**.
-  - 🏛️ **Codice Fiscale & Partita IVA**: Riconoscimento conforme alle specifiche dell'Agenzia delle Entrate, gestione omocodia, e verifica del carattere di controllo.
-  - 📞 **Phone numbers**: Numeri italiani con o senza prefisso internazionale (`+39`, `0039`), cellulari (`3xx`) e numerazioni fisse (`0xx`).
-  - 🪪 **Document ID italiani**: Carta d'Identità Elettronica (**CIE 3.0** es. `CA00000AA`), Carta d'Identità cartacea, Patente di Guida italiana e Passaporto.
-  - 🏷️ **Stringhe Personalizzate**: Possibilità di definire parole, nomi di persone, aziende, codici interni o regex personalizzate.
-
-- **Interfaccia Affiancata a 2 Text Box**:
-  - **Box Sinistra**: Inserimento del prompt originale (dati in chiaro elaborati solo in locale).
-  - **Box Destra**: Risultato sanificato e anonimizzato con etichette coerenti (es. `[CODICE_FISCALE_1]`, `[IBAN_1]`, `[EMAIL_1]`).
-
-- **Funzionamento Bidirezionale con Ripristino Automatico**:
-  - Tiene traccia nel dizionario di decodifica di ogni associazione tra entità originale e placeholder.
-  - Quando l'AI risponde, l'applicazione riceve la risposta con le etichette e **riconverte il risultato risostituendo alle etichette il testo originale**.
-  - Schede per visualizzare sia la *Risposta Ripristinata* sia la *Risposta Grezza* dell'AI.
-  - Pulsante di conversione manuale inversa per de-anonimizzare qualsiasi testo.
-
-- **Integrazione API AI (ChatGPT, Claude & Simulatore)**:
-  - Collegamento facoltativo alle API ufficiali di **OpenAI** (GPT-4o, GPT-4o Mini, GPT-4 Turbo, GPT-3.5) e **Anthropic** (Claude 3.5 Sonnet, Claude 3.5 Haiku, Claude 3 Opus).
-  - **Simulatore Locale Gratuito integrato**: permette di testare immediatamente l'intero ciclo di anonimizzazione e ripristino senza necessità di inserire chiavi API a pagamento.
-
-- **Box Statistiche & Token Rimanenti Sempre Visibile**:
-  - Scheda dashboard sempre visibile a schermo che riporta:
-    - Provider e Modello AI attivo.
-    - Token dell'ultima chiamata (Prompt e Risposta).
-    - Token accumulati nella sessione.
-    - **Finestra di contesto massima e Token rimanenti per quella specifica AI** (con barra di avanzamento percentuale).
-    - Numero di richieste completate e stima del costo in dollari.
-
-- **Garanzia Zero-Leak**:
-  - Audit client-side e server-side pre-volo che scansiona il payload in uscita prima di inviarlo all'AI per assicurare che nessun dato grezzo sia presente nel testo trasmesso.
+L'architettura garantisce la **totale conformità agli standard italiani ed europei (GDPR)** con una politica **Zero-Leak rigorosa**: nessun dato sensibile, personale o bancario in chiaro viene mai trasmesso all'esterno o inoltrato alle AI.
 
 ---
 
-## 🛠️ Tecnologie Utilizzate
+## 📐 Architettura Bidirezionale & Flusso Zero-Leak
 
-- **Framework**: [Next.js](https://nextjs.org/) (App Router, React 19, TypeScript)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **Icone**: [Lucide React](https://lucide.dev/)
-- **Test Runner**: Test suite automatizzata (`scripts/test-engine.ts`) con `tsx`
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Utente as 👤 Utente
+    participant App as 🖥️ AI Anonymizer (Client/Locale)
+    participant Engine as 🛡️ Anonymizer Engine
+    participant Proxy as 🔒 Server Security Proxy
+    participant AI as 🤖 Provider AI (OpenAI / Claude)
+
+    Utente->>App: Inserisce prompt con dati sensibili (Box Sinistra)
+    App->>Engine: Scansione Regex & Validatori (CF, IBAN, CIE, Carte, ecc.)
+    Engine-->>App: Genera Dizionario Mappature & Testo Anonimizzato (Box Destra)
+    Utente->>App: Clicca "Invia ad AI"
+    App->>Engine: Audit Zero-Leak (Verifica che nessun dato originale sia presente)
+    Engine-->>App: Audit OK (0 byte in chiaro)
+    App->>Proxy: Invio payload sanificato + check segreti
+    Proxy->>AI: Chiamata API protetta con testo anonimizzato ([TAG_X])
+    AI-->>Proxy: Risposta con etichette segnaposto
+    Proxy-->>App: Ritorna testo risposta AI + statistiche token
+    App->>Engine: De-anonimizzazione inversa (Sostituzione [TAG_X] -> Valori Reali)
+    Engine-->>App: Testo finale ripristinato
+    App->>Utente: Mostra Risposta Ripristinata (Dati Reali) e Statistiche Token
+```
 
 ---
 
-## 💻 Come Avviare l'Applicativo
+## 🚀 Tipologie di Dati Anonimizzate (Standard IT & Internazionali)
 
-### 1. Avvio in modalità Sviluppo
+L'applicativo implementa regole di estrazione e validatori matematici/formali per ciascuna delle seguenti entità:
+
+| Tipologia Dati | Standard / Algoritmo di Riferimento | Esempio Placeholder Generato |
+| :--- | :--- | :--- |
+| **Codice Fiscale** | Standard Agenzia delle Entrate DM 23/12/1976 con omocodie e check carattere controllo | `[CODICE_FISCALE_1]` |
+| **Documenti d'Identità IT** | **CIE 3.0** (`CA12345AA`), Cartacea (`AA 1234567`), **Patente di guida** e **Passaporto** | `[DOCUMENT_ID_1]` |
+| **IBAN & Codici Bancari** | IBAN italiano (27 caratteri `IT...`), IBAN internazionali con algoritmo **MOD-97**, codici **ABI**, **CAB** e codici **SWIFT/BIC** | `[IBAN_1]`, `[BANK_CODE_1]` |
+| **Carte di Credito** | Visa, MasterCard, American Express, Diners, con validazione **Algoritmo di Luhn** (evita falsi positivi su sequenze casuali) | `[CREDIT_CARD_1]` |
+| **Numeri Telefonici** | Prefissi italiani `+39` / `0039`, cellulari (`3xx`), numeri fissi con prefisso distrettuale (`0xx`) e formati internazionali | `[PHONE_1]` |
+| **API Keys & Tokens** | OpenAI (`sk-...`), Anthropic (`sk-ant-...`), AWS Access Key (`AKIA...`), GitHub (`ghp_...`), JWT Bearer, Stripe (`sk_live_...`) | `[API_KEY_1]` |
+| **Email Addresses** | Standard RFC 5322 | `[EMAIL_1]` |
+| **Indirizzi IP** | Indirizzi IPv4 (con verifica validità ottetti 0-255) e IPv6 | `[IP_ADDRESS_1]` |
+| **MAC Addresses** | Formati standard esadecimali a 6 coppie (`XX:XX:XX:XX:XX:XX` o `XXXX.XXXX.XXXX`) | `[MAC_ADDRESS_1]` |
+| **UUID / GUID** | Identificatori univoci standard 8-4-4-4-12 | `[UUID_1]` |
+| **Web URLs** | Link `http`, `https`, `ftp`, domini con percorsi e query string | `[URL_1]` |
+| **Partita IVA** | Partita IVA italiana (11 cifre) con verifica checksum | `[PARTITA_IVA_1]` |
+| **Stringhe Personalizzate** | Nomi propri, progetti riservati, aziende o Regex definite dall'utente | `[CUSTOM_1]` |
+
+---
+
+## 🖥️ Interfaccia Utente
+
+1. **Box Statistiche & Token Rimanenti (Sempre Visibile)**:
+   - Monitora in tempo reale il provider e modello selezionato.
+   - Mostra i **token rimanenti nella finestra di contesto** per quella specifica AI (es. 128.000 token per GPT-4o, 200.000 per Claude 3.5 Sonnet) con barra di progresso percentuale.
+   - Registra token in ingresso, token in uscita, totale sessione e stima dei costi.
+   - Badge di sicurezza attiva che certifica 0 byte in chiaro trasmessi.
+
+2. **Due Text Box Affiancate**:
+   - **Box Sinistra**: Prompt originale in chiaro (rimane confinato sul dispositivo locale).
+   - **Box Destra**: Prompt sanificato e anonimizzato in tempo reale, pronto per l'invio all'AI.
+
+3. **Riconversione Inversa & Visualizzatore Risposta AI**:
+   - Quando l'AI risponde citando le etichette, il sistema le ripristina all'istante con i valori originali.
+   - Schede a confronto: **"Ripristinata (Dati Reali)"** vs **"Grezza (Anonimizzata dall'AI)"**.
+   - Pulsante di de-anonimizzazione manuale inversa per qualunque testo incollato.
+
+4. **Registro Mappature & Inspector**:
+   - Tabella interattiva per visualizzare, copiare, mascherare o abilitare/disabilitare ciascuna sostituzione.
+   - Esportazione del dizionario di mappatura in formato JSON.
+
+5. **Stringhe Personalizzate**:
+   - Modal per aggiungere parole chiave, frasi o espressioni regolari con etichetta personalizzata e opzione case-sensitive.
+
+---
+
+## 🤖 Integrazione AI Supportate
+
+- **OpenAI**: `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`, `gpt-3.5-turbo`.
+- **Anthropic Claude**: `claude-3-5-sonnet-20241022`, `claude-3-5-haiku-20241022`, `claude-3-opus-20240229`.
+- **Simulatore AI Locale (Test Senza API Key)**: Permette di provare immediatamente il funzionamento del software, la sostituzione dei token e la restituzione dei dati reali senza consumare crediti o configurare chiavi.
+
+---
+
+## 📦 Installazione e Avvio
+
+### Prerequisiti
+- [Node.js](https://nodejs.org/) v18 o superiore (testato anche su Node 25)
+- npm o yarn o pnpm
+
+### 1. Clonare il repository e installare le dipendenze
+```bash
+git clone https://github.com/speedlnx/AI-Anonymizer.git
+cd AI-Anonymizer
+npm install
+```
+
+### 2. Avvio in modalità sviluppo
 ```bash
 npm run dev
 ```
-L'applicazione sarà accessibile all'indirizzo: `http://localhost:3000`
+Apri il browser su [http://localhost:3000](http://localhost:3000).
 
-### 2. Esecuzione dei Test di Validazione
-Per verificare che tutti i controlli (Codice Fiscale, CIE, IBAN, Carte di Credito, Regex e Ripristino) passino con successo:
+### 3. Esecuzione dei Test di Validazione
+Tutti i componenti di anonimizzazione, gli algoritmi matematici e il ripristino bidirezionale dispongono di test automatizzati:
 ```bash
 npm test
 ```
 
-### 3. Build di Produzione
+### 4. Compilazione e Avvio in Produzione
 ```bash
 npm run build
 npm start
@@ -80,12 +129,14 @@ npm start
 
 ---
 
-## 📖 Guida all'Uso Rapido
+## 🔒 Sicurezza & Privacy (Zero-Leak)
 
-1. **Inserisci il prompt** nella text box di sinistra (oppure clicca sul pulsante **"Carica Esempi"** nella barra superiore per caricare uno scenario di test realistico).
-2. Il testo sanificato comparirà in tempo reale nella text box di destra, e la tabella in basso mostrerà tutte le entità rilevate.
-3. Se desideri proteggere termini specifici (es. il nome della tua azienda o di un progetto), clicca su **"Stringhe Personalizzate"** e aggiungili.
-4. Clicca su **"Invia Anonimizzato ad AI & Ripristina Risposta"**:
-   - Di default è attivo il *Simulatore Locale*, che ti mostra istantaneamente la risposta dell'AI con i dati originali ripristinati.
-   - Cliccando su **"AI: Configura"** puoi impostare la tua API Key di OpenAI o Anthropic per usare modelli reali (GPT-4o, Claude 3.5 Sonnet, ecc.).
-5. Controlla in ogni momento il box sempre visibile delle statistiche con i **token rimanenti** per il modello selezionato.
+- **Elaborazione Locale**: Il motore di rilevamento Regex e i validatori di checksum girano direttamente all'interno del browser.
+- **Pre-flight Audit**: Prima che qualunque richiesta HTTP verso le API esterne venga instradata, il motore `AnonymizerEngine.auditForDataLeak` verifica l'assenza totale di stringhe sensibili memorizzate. Se viene rilevata anche una sola corrispondenza non anonimizzata, l'invio viene abortito con allarme rosso di sicurezza.
+- **API Keys Protette**: Le chiavi API dell'utente risiedono unicamente nel `localStorage` del browser e non vengono salvate su database esterni.
+
+---
+
+## 📄 Licenza
+
+Rilasciato sotto licenza [MIT](LICENSE).
