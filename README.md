@@ -90,7 +90,7 @@ L'applicativo implementa regole di estrazione e validatori matematici/formali pe
 
 ## 🤖 Integrazione AI Supportate
 
-- **OpenAI**: `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`, `gpt-3.5-turbo`.
+- **OpenAI**: `gpt-6-luna`, `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`, `gpt-3.5-turbo`.
 - **Anthropic Claude**: `claude-3-5-sonnet-20241022`, `claude-3-5-haiku-20241022`, `claude-3-opus-20240229`.
 - **Simulatore AI Locale (Test Senza API Key)**: Permette di provare immediatamente il funzionamento del software, la sostituzione dei token e la restituzione dei dati reali senza consumare crediti o configurare chiavi.
 

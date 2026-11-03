@@ -12,6 +12,16 @@ export interface ModelMeta {
 export const SUPPORTED_MODELS: ModelMeta[] = [
   // OpenAI
   {
+    id: 'gpt-6-luna',
+    name: 'OpenAI GPT-6 Luna',
+    provider: 'openai',
+    contextWindow: 512000,
+    maxOutputTokens: 16384,
+    costPer1kPromptUsd: 0.005,
+    costPer1kCompletionUsd: 0.02,
+    description: 'Modello OpenAI di nuova generazione ad altissime prestazioni, ragionamento profondo e finestra estesa',
+  },
+  {
     id: 'gpt-4o',
     name: 'OpenAI GPT-4o',
     provider: 'openai',
