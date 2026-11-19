@@ -125,9 +125,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Chiave API Anthropic Claude non fornita.' }, { status: 400 });
       }
 
+      const meta = getModelMeta(model || 'claude-5-5-haiku');
       const bodyPayload: Record<string, unknown> = {
-        model: model || 'claude-3-5-sonnet-20241022',
-        max_tokens: 4096,
+        model: model || 'claude-5-5-haiku',
+        max_tokens: meta.maxOutputTokens || 4096,
         temperature,
         messages: [{ role: 'user', content: prompt }],
       };

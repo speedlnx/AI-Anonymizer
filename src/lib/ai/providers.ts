@@ -64,6 +64,16 @@ export const SUPPORTED_MODELS: ModelMeta[] = [
 
   // Anthropic Claude
   {
+    id: 'claude-5-5-haiku',
+    name: 'Claude 5.5 Haiku',
+    provider: 'anthropic',
+    contextWindow: 500000,
+    maxOutputTokens: 16384,
+    costPer1kPromptUsd: 0.001,
+    costPer1kCompletionUsd: 0.005,
+    description: 'Modello Anthropic di nuova generazione ultra-veloce, leggero ed economico con finestra estesa',
+  },
+  {
     id: 'claude-3-5-sonnet-20241022',
     name: 'Claude 3.5 Sonnet',
     provider: 'anthropic',
@@ -108,19 +118,32 @@ export const SUPPORTED_MODELS: ModelMeta[] = [
 ];
 
 export function getModelMeta(modelId: string): ModelMeta {
-  const found = SUPPORTED_MODELS.find((m) => m.id === modelId);
-  return (
-    found || {
-      id: modelId,
-      name: modelId,
-      provider: modelId.startsWith('claude') ? 'anthropic' : 'openai',
-      contextWindow: 128000,
-      maxOutputTokens: 4096,
-      costPer1kPromptUsd: 0.002,
-      costPer1kCompletionUsd: 0.008,
-      description: 'Modello personalizzato',
-    }
+  const normalized = modelId?.toLowerCase().replace(/[._]/g, '-');
+  const found = SUPPORTED_MODELS.find(
+    (m) => m.id === modelId || m.id.toLowerCase().replace(/[._]/g, '-') === normalized
   );
+  if (found) return found;
+
+  // Handle Claude Haiku 5.5 aliases
+  if (
+    normalized &&
+    normalized.includes('haiku') &&
+    (normalized.includes('5-5') || normalized.includes('5.5'))
+  ) {
+    const haiku55 = SUPPORTED_MODELS.find((m) => m.id === 'claude-5-5-haiku');
+    if (haiku55) return haiku55;
+  }
+
+  return {
+    id: modelId,
+    name: modelId,
+    provider: modelId.startsWith('claude') ? 'anthropic' : 'openai',
+    contextWindow: 128000,
+    maxOutputTokens: 4096,
+    costPer1kPromptUsd: 0.002,
+    costPer1kCompletionUsd: 0.008,
+    description: 'Modello personalizzato',
+  };
 }
 
 // Rough token estimation (approx 4 chars per token for Latin/Italian text)
