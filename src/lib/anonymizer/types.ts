@@ -89,5 +89,7 @@ export interface TokenUsageStats {
   requestCount: number;
   lastRequestTimestamp: number | null;
   estimatedCostUsd: number;
+  cachedTokens?: number;
+  sessionCachedTokens?: number;
 }
 

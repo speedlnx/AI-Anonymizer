@@ -345,15 +345,20 @@ export default function Home() {
       const promptToks = data.usage?.promptTokens || estimateTokenCount(anonymizedText);
       const completionToks = data.usage?.completionTokens || estimateTokenCount(receivedContent);
       const totalToks = data.usage?.totalTokens || promptToks + completionToks;
+      const cachedToks = data.usage?.cachedTokens || data.usage?.cacheReadInputTokens || 0;
 
+      // Cost calculation with prompt cache savings (90% discount on cached read tokens)
+      const nonCachedPromptToks = Math.max(0, promptToks - cachedToks);
       const callCost =
-        (promptToks / 1000) * meta.costPer1kPromptUsd +
+        (nonCachedPromptToks / 1000) * meta.costPer1kPromptUsd +
+        (cachedToks / 1000) * (meta.costPer1kPromptUsd * 0.1) +
         (completionToks / 1000) * meta.costPer1kCompletionUsd;
 
       setTokenStats((prev) => {
         const newSessionPrompt = prev.sessionPromptTokens + promptToks;
         const newSessionComp = prev.sessionCompletionTokens + completionToks;
         const newSessionTotal = prev.sessionTotalTokens + totalToks;
+        const newSessionCached = (prev.sessionCachedTokens || 0) + cachedToks;
         const remaining = Math.max(0, meta.contextWindow - newSessionTotal);
 
         return {
@@ -369,11 +374,14 @@ export default function Home() {
           requestCount: prev.requestCount + 1,
           lastRequestTimestamp: Date.now(),
           estimatedCostUsd: prev.estimatedCostUsd + callCost,
+          cachedTokens: cachedToks,
+          sessionCachedTokens: newSessionCached,
         };
       });
 
+      const cacheSavingsMsg = cachedToks > 0 ? ` (⚡ ${cachedToks} token da Prompt Cache - sconto 90%)` : '';
       setSecurityNotification(
-        `Risposta AI ricevuta in ${latency}ms! ${restored.restorationsCount} etichette ripristinate automaticamente.`
+        `Risposta AI ricevuta in ${latency}ms${cacheSavingsMsg}! ${restored.restorationsCount} etichette ripristinate automaticamente.`
       );
     } catch (err: unknown) {
       console.error('Send to AI error:', err);

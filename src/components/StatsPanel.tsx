@@ -66,6 +66,17 @@ export function StatsPanel({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Prompt caching badge */}
+          {(stats.sessionCachedTokens ?? 0) > 0 && (
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-medium"
+              title="Token recuperati istantaneamente dalla Prompt Cache (sconto del 90% sui costi)"
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+              <span>Cache: {formatNumber(stats.sessionCachedTokens || 0)} tok</span>
+            </div>
+          )}
+
           {/* Security zero-leak badge */}
           <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-medium">
             <ShieldCheck className="w-3.5 h-3.5" />
@@ -127,9 +138,14 @@ export function StatsPanel({
             {formatNumber(stats.lastTotalTokens)}{' '}
             <span className="text-xs font-normal text-slate-500">tok</span>
           </div>
-          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center justify-between">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center justify-between gap-1">
             <span>In: {stats.lastPromptTokens}</span>
             <span>Out: {stats.lastCompletionTokens}</span>
+            {stats.cachedTokens ? (
+              <span className="text-amber-600 dark:text-amber-400 font-bold" title="Token recuperati da prompt cache (sconto 90%)">
+                ⚡{stats.cachedTokens}
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -141,9 +157,14 @@ export function StatsPanel({
           <div className="text-lg font-bold text-slate-900 dark:text-white">
             {formatNumber(stats.sessionTotalTokens)}
           </div>
-          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center justify-between">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center justify-between gap-1">
             <span>In: {formatNumber(stats.sessionPromptTokens)}</span>
             <span>Out: {formatNumber(stats.sessionCompletionTokens)}</span>
+            {(stats.sessionCachedTokens ?? 0) > 0 && (
+              <span className="text-amber-600 dark:text-amber-400 font-bold" title="Token totali risparmiati con prompt cache">
+                ⚡{formatNumber(stats.sessionCachedTokens || 0)}
+              </span>
+            )}
           </div>
         </div>
 

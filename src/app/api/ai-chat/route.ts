@@ -166,6 +166,7 @@ export async function POST(req: NextRequest) {
 
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content || '';
+      const cachedTokens = data.usage?.prompt_tokens_details?.cached_tokens ?? 0;
       const usage = data.usage || {
         prompt_tokens: estimateTokenCount(prompt),
         completion_tokens: estimateTokenCount(content),
@@ -178,6 +179,7 @@ export async function POST(req: NextRequest) {
           promptTokens: usage.prompt_tokens,
           completionTokens: usage.completion_tokens,
           totalTokens: usage.total_tokens,
+          cachedTokens,
         },
         model: data.model || meta.name || model,
       });
@@ -220,17 +222,40 @@ export async function POST(req: NextRequest) {
         targetModel = 'claude-fable-5-2';
       }
 
+      // Default system instruction to ensure prompt placeholder preservation & enable prompt caching
+      const defaultSystemInstruction =
+        "Sei un assistente AI professionale, accurato e sicuro. Ricevi testi pre-anonimizzati secondo rigorosi criteri di riservatezza GDPR. Rispondi con precisione alle richieste dell'utente preservando fedelmente e senza alcuna alterazione tutti i segnaposto ed etichette tra parentesi quadre (ad es. [CODICE_FISCALE_1], [IBAN_1], [EMAIL_1], [DOCUMENT_ID_1], ecc.), così che possano essere de-anonimizzati automaticamente nella restituzione finale.";
+
+      const effectiveSystem = systemPrompt && systemPrompt.trim() ? systemPrompt.trim() : defaultSystemInstruction;
+
       const callAnthropic = async (modelName: string) => {
+        // PROMPT CACHING & CLAUDE 5.x SAMPLING RULES:
+        // 1. temperature is deprecated on Claude 5.x and MUST be omitted to avoid invalid_request_error
+        // 2. cache_control: { type: 'ephemeral' } enables prompt caching on system and user blocks,
+        //    reducing latency and granting up to 90% discount on cached input tokens!
         const bodyPayload: Record<string, unknown> = {
           model: modelName,
           max_tokens: meta.maxOutputTokens || 4096,
-          temperature,
-          messages: [{ role: 'user', content: prompt }],
+          system: [
+            {
+              type: 'text',
+              text: effectiveSystem,
+              cache_control: { type: 'ephemeral' },
+            },
+          ],
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: prompt,
+                  cache_control: { type: 'ephemeral' },
+                },
+              ],
+            },
+          ],
         };
-
-        if (systemPrompt && systemPrompt.trim()) {
-          bodyPayload.system = systemPrompt;
-        }
 
         return fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
@@ -318,6 +343,32 @@ export async function POST(req: NextRequest) {
           ?.filter((c: { type: string }) => c.type === 'text')
           .map((c: { text: string }) => c.text)
           .join('\n') || '';
+
+      const inputTokens = data.usage?.input_tokens ?? 0;
+      const outputTokens = data.usage?.output_tokens ?? 0;
+      const cacheCreationTokens = data.usage?.cache_creation_input_tokens ?? 0;
+      const cacheReadTokens = data.usage?.cache_read_input_tokens ?? 0;
+
+      const totalPromptTokens =
+        inputTokens + cacheCreationTokens + cacheReadTokens > 0
+          ? inputTokens + cacheCreationTokens + cacheReadTokens
+          : estimateTokenCount(prompt);
+
+      const totalCompletionTokens =
+        outputTokens > 0 ? outputTokens : estimateTokenCount(content);
+
+      return NextResponse.json({
+        content,
+        usage: {
+          promptTokens: totalPromptTokens,
+          completionTokens: totalCompletionTokens,
+          totalTokens: totalPromptTokens + totalCompletionTokens,
+          cacheCreationInputTokens: cacheCreationTokens,
+          cacheReadInputTokens: cacheReadTokens,
+          cachedTokens: cacheReadTokens,
+        },
+        model: data.model || meta.name || model,
+      });
 
       const promptTokens = data.usage?.input_tokens || estimateTokenCount(prompt);
       const completionTokens = data.usage?.output_tokens || estimateTokenCount(content);
