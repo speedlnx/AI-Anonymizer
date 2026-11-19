@@ -31,77 +31,47 @@ export const SUPPORTED_MODELS: ModelMeta[] = [
     costPer1kCompletionUsd: 0.01,
     description: 'Modello flagship OpenAI per compiti complessi e multimodali',
   },
-  {
-    id: 'gpt-4o-mini',
-    name: 'OpenAI GPT-4o Mini',
-    provider: 'openai',
-    contextWindow: 128000,
-    maxOutputTokens: 4096,
-    costPer1kPromptUsd: 0.00015,
-    costPer1kCompletionUsd: 0.0006,
-    description: 'Modello veloce ed economico ad alte prestazioni',
-  },
-  {
-    id: 'gpt-4-turbo',
-    name: 'OpenAI GPT-4 Turbo',
-    provider: 'openai',
-    contextWindow: 128000,
-    maxOutputTokens: 4096,
-    costPer1kPromptUsd: 0.01,
-    costPer1kCompletionUsd: 0.03,
-    description: 'GPT-4 con ampia finestra di contesto',
-  },
-  {
-    id: 'gpt-3.5-turbo',
-    name: 'OpenAI GPT-3.5 Turbo',
-    provider: 'openai',
-    contextWindow: 16385,
-    maxOutputTokens: 4096,
-    costPer1kPromptUsd: 0.0005,
-    costPer1kCompletionUsd: 0.0015,
-    description: 'Modello legacy rapido',
-  },
 
-  // Anthropic Claude
+  // Anthropic Claude (modelli supportati)
   {
     id: 'claude-5-5-haiku',
-    name: 'Claude 5.5 Haiku',
+    name: 'Claude Haiku 5.5',
     provider: 'anthropic',
     contextWindow: 500000,
     maxOutputTokens: 16384,
     costPer1kPromptUsd: 0.001,
     costPer1kCompletionUsd: 0.005,
-    description: 'Modello Anthropic di nuova generazione ultra-veloce, leggero ed economico con finestra estesa',
+    description: 'Modello ultra-rapido, leggero ed efficiente per analisi e compiti ad alta velocità',
   },
   {
-    id: 'claude-3-5-sonnet-20241022',
-    name: 'Claude 3.5 Sonnet',
+    id: 'claude-5-5-sonnet',
+    name: 'Claude Sonnet 5.5',
     provider: 'anthropic',
-    contextWindow: 200000,
-    maxOutputTokens: 8192,
+    contextWindow: 500000,
+    maxOutputTokens: 16384,
     costPer1kPromptUsd: 0.003,
     costPer1kCompletionUsd: 0.015,
-    description: 'Il modello più intelligente di Anthropic per coding e analisi',
+    description: 'Modello bilanciato ad altissima intelligenza per analisi complesse e programmazione',
   },
   {
-    id: 'claude-3-5-haiku-20241022',
-    name: 'Claude 3.5 Haiku',
+    id: 'claude-5-5-opus',
+    name: 'Claude Opus 5.5',
     provider: 'anthropic',
-    contextWindow: 200000,
-    maxOutputTokens: 8192,
-    costPer1kPromptUsd: 0.0008,
-    costPer1kCompletionUsd: 0.004,
-    description: 'Modello ultra-veloce e leggero di Claude',
-  },
-  {
-    id: 'claude-3-opus-20240229',
-    name: 'Claude 3 Opus',
-    provider: 'anthropic',
-    contextWindow: 200000,
-    maxOutputTokens: 4096,
+    contextWindow: 500000,
+    maxOutputTokens: 16384,
     costPer1kPromptUsd: 0.015,
     costPer1kCompletionUsd: 0.075,
-    description: 'Modello ad altissimo ragionamento per task complessi',
+    description: 'Modello di punta per massimo ragionamento, elaborazione concettuale e sintesi avanzata',
+  },
+  {
+    id: 'claude-5-2-fable',
+    name: 'Claude Fable 5.2',
+    provider: 'anthropic',
+    contextWindow: 300000,
+    maxOutputTokens: 12288,
+    costPer1kPromptUsd: 0.002,
+    costPer1kCompletionUsd: 0.01,
+    description: 'Modello specializzato in creatività, sintesi espressiva e narrative complesse',
   },
 
   // Mock / Simulatore locale
@@ -124,20 +94,29 @@ export function getModelMeta(modelId: string): ModelMeta {
   );
   if (found) return found;
 
-  // Handle Claude Haiku 5.5 aliases
-  if (
-    normalized &&
-    normalized.includes('haiku') &&
-    (normalized.includes('5-5') || normalized.includes('5.5'))
-  ) {
-    const haiku55 = SUPPORTED_MODELS.find((m) => m.id === 'claude-5-5-haiku');
-    if (haiku55) return haiku55;
+  // Handle Claude aliases
+  if (normalized) {
+    if (normalized.includes('haiku')) {
+      return SUPPORTED_MODELS.find((m) => m.id === 'claude-5-5-haiku')!;
+    }
+    if (normalized.includes('sonnet')) {
+      return SUPPORTED_MODELS.find((m) => m.id === 'claude-5-5-sonnet')!;
+    }
+    if (normalized.includes('opus')) {
+      return SUPPORTED_MODELS.find((m) => m.id === 'claude-5-5-opus')!;
+    }
+    if (normalized.includes('fable')) {
+      return SUPPORTED_MODELS.find((m) => m.id === 'claude-5-2-fable')!;
+    }
+    if (normalized.includes('luna') || normalized.includes('gpt-6')) {
+      return SUPPORTED_MODELS.find((m) => m.id === 'gpt-6-luna')!;
+    }
   }
 
   return {
     id: modelId,
     name: modelId,
-    provider: modelId.startsWith('claude') ? 'anthropic' : 'openai',
+    provider: modelId?.startsWith('claude') ? 'anthropic' : 'openai',
     contextWindow: 128000,
     maxOutputTokens: 4096,
     costPer1kPromptUsd: 0.002,
@@ -151,4 +130,3 @@ export function estimateTokenCount(text: string): number {
   if (!text) return 0;
   return Math.max(1, Math.ceil(text.length / 3.8));
 }
-

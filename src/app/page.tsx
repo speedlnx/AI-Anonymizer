@@ -12,7 +12,7 @@ import { PrivacyModal } from '@/components/PrivacyModal';
 import { AnonymizerEngine } from '@/lib/anonymizer/engine';
 import { EntityMapping, CustomRule, TokenUsageStats, DeanonymizationResult } from '@/lib/anonymizer/types';
 import { SamplePrompt, SAMPLE_PROMPTS } from '@/lib/anonymizer/samples';
-import { getModelMeta, estimateTokenCount } from '@/lib/ai/providers';
+import { getModelMeta, estimateTokenCount, SUPPORTED_MODELS } from '@/lib/ai/providers';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 export default function Home() {
@@ -71,10 +71,20 @@ export default function Home() {
       const savedKey = localStorage.getItem('anonymizer_ai_key');
       const savedCustomRules = localStorage.getItem('anonymizer_custom_rules');
 
-      if (savedProvider && ['openai', 'anthropic', 'mock'].includes(savedProvider)) {
-        setAiProvider(savedProvider as 'openai' | 'anthropic' | 'mock');
+      const targetProvider: 'openai' | 'anthropic' | 'mock' =
+        savedProvider && ['openai', 'anthropic', 'mock'].includes(savedProvider)
+          ? (savedProvider as 'openai' | 'anthropic' | 'mock')
+          : 'mock';
+      setAiProvider(targetProvider);
+
+      const availableForProvider = SUPPORTED_MODELS.filter((m) => m.provider === targetProvider);
+      const isModelValid = availableForProvider.some((m) => m.id === savedModel);
+      if (isModelValid && savedModel) {
+        setAiModel(savedModel);
+      } else if (availableForProvider.length > 0) {
+        setAiModel(availableForProvider[0].id);
       }
-      if (savedModel) setAiModel(savedModel);
+
       if (savedKey) setAiApiKey(savedKey);
       if (savedCustomRules) {
         setCustomRules(JSON.parse(savedCustomRules));

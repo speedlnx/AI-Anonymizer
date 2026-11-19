@@ -37,9 +37,15 @@ export function AiConfigModal({
 }: AiConfigModalProps) {
   const [showKey, setShowKey] = useState(false);
 
-  if (!isOpen) return null;
-
   const currentModels = SUPPORTED_MODELS.filter((m) => m.provider === provider);
+
+  React.useEffect(() => {
+    if (isOpen && currentModels.length > 0 && !currentModels.some((m) => m.id === model)) {
+      onChangeModel(currentModels[0].id);
+    }
+  }, [isOpen, provider, model, currentModels, onChangeModel]);
+
+  if (!isOpen) return null;
 
   const handleProviderSelect = (newProvider: 'openai' | 'anthropic' | 'mock') => {
     onChangeProvider(newProvider);
