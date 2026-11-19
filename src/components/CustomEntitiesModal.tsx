@@ -1,7 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, Plus, Trash2, Sliders, Shield, Check, AlertCircle } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import {
+  X,
+  Plus,
+  Trash2,
+  Sliders,
+  AlertCircle,
+  Search,
+} from 'lucide-react';
 import { CustomRule } from '@/lib/anonymizer/types';
 
 interface CustomEntitiesModalProps {
@@ -23,20 +30,50 @@ export function CustomEntitiesModal({
   const [categoryLabel, setCategoryLabel] = useState('');
   const [isRegex, setIsRegex] = useState(false);
   const [caseSensitive, setCaseSensitive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // Filter rules according to search query
+  const filteredRules = useMemo(() => {
+    if (!searchQuery.trim()) return customRules;
+    const q = searchQuery.toLowerCase().trim();
+    return customRules.filter(
+      (r) =>
+        r.text.toLowerCase().includes(q) ||
+        (r.categoryLabel && r.categoryLabel.toLowerCase().includes(q))
+    );
+  }, [customRules, searchQuery]);
 
   if (!isOpen) return null;
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim()) {
+    const candidateText = inputText.trim();
+
+    if (!candidateText) {
       setError('Inserisci il testo o l\'espressione da anonimizzare.');
+      return;
+    }
+
+    // CHECK FOR DUPLICATES: verify if rule already exists
+    const isDuplicate = customRules.some((rule) => {
+      // If regex mode differs, they are technically different patterns, but if identical mode:
+      if (rule.isRegex !== isRegex) return false;
+
+      if (caseSensitive || rule.caseSensitive) {
+        return rule.text === candidateText;
+      }
+      return rule.text.toLowerCase() === candidateText.toLowerCase();
+    });
+
+    if (isDuplicate) {
+      setError(`La regola "${candidateText}" è già stata inserita nell'elenco (duplicato non consentito).`);
       return;
     }
 
     if (isRegex) {
       try {
-        new RegExp(inputText.trim());
+        new RegExp(candidateText);
       } catch (err: unknown) {
         setError(`Espressione regolare non valida: ${err instanceof Error ? err.message : ''}`);
         return;
@@ -44,7 +81,7 @@ export function CustomEntitiesModal({
     }
 
     onAddRule({
-      text: inputText.trim(),
+      text: candidateText,
       categoryLabel: categoryLabel.trim() || 'Personalizzato',
       isRegex,
       caseSensitive,
@@ -83,6 +120,7 @@ export function CustomEntitiesModal({
 
         {/* Form Body */}
         <div className="p-6 overflow-y-auto space-y-5 flex-1">
+          {/* Add New Rule Form */}
           <form onSubmit={handleAdd} className="space-y-3 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/60">
             <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
               Aggiungi nuova regola:
@@ -141,28 +179,60 @@ export function CustomEntitiesModal({
             </div>
 
             {error && (
-              <div className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
-                <AlertCircle className="w-3.5 h-3.5" />
+              <div className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 p-2.5 rounded-xl border border-red-200 dark:border-red-900">
+                <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{error}</span>
               </div>
             )}
           </form>
 
-          {/* List of defined custom rules */}
+          {/* Search Box & List of defined custom rules */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                 Regole personalizzate attive ({customRules.length})
               </span>
+              {searchQuery && (
+                <span className="text-[11px] text-slate-400 font-medium">
+                  {filteredRules.length} di {customRules.length} trovate
+                </span>
+              )}
             </div>
+
+            {/* Search Input (only shown when rules exist or searching) */}
+            {customRules.length > 0 && (
+              <div className="relative mb-3">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Cerca tra le stringhe o categorie..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-8 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 absolute right-2.5 top-1/2 -translate-y-1/2"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            )}
 
             {customRules.length === 0 ? (
               <div className="text-center py-6 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400 text-xs">
                 Nessuna stringa personalizzata aggiunta. I filtri standard italiani rimangono sempre attivi.
               </div>
+            ) : filteredRules.length === 0 ? (
+              <div className="text-center py-6 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400 text-xs">
+                Nessuna regola trovata per &ldquo;{searchQuery}&rdquo;.
+              </div>
             ) : (
               <div className="space-y-2">
-                {customRules.map((rule) => (
+                {filteredRules.map((rule) => (
                   <div
                     key={rule.id}
                     className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800"
@@ -215,4 +285,3 @@ export function CustomEntitiesModal({
     </div>
   );
 }
-

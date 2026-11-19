@@ -198,8 +198,15 @@ export default function Home() {
     setAnonymizedText(result.anonymizedText);
   };
 
-  // Add custom rule
+  // Add custom rule (with duplicate protection)
   const handleAddCustomRule = (newRule: Omit<CustomRule, 'id'>) => {
+    const isDuplicate = customRules.some((r) => {
+      if (r.isRegex !== newRule.isRegex) return false;
+      if (newRule.caseSensitive || r.caseSensitive) return r.text === newRule.text;
+      return r.text.toLowerCase() === newRule.text.toLowerCase();
+    });
+    if (isDuplicate) return;
+
     const rule: CustomRule = {
       ...newRule,
       id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
