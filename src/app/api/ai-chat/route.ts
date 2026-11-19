@@ -224,20 +224,22 @@ export async function POST(req: NextRequest) {
       let response = await callAnthropic(targetModel);
       const attemptedModels = [targetModel];
 
-      // If Anthropic returns model not found (e.g. 400 "model: ..."), automatically try official fallbacks
+      // If Anthropic returns model not found (e.g. 404 not_found_error, 400 invalid_request_error, or "model: ..."), automatically try official fallbacks
       if (!response.ok) {
         const errorPeek = await response.clone().json().catch(() => ({}));
         const isModelError =
-          errorPeek.error?.type === 'invalid_request_error' &&
-          errorPeek.error?.message?.includes('model:');
+          errorPeek.error?.type === 'not_found_error' ||
+          errorPeek.error?.type === 'invalid_request_error' ||
+          (typeof errorPeek.error?.message === 'string' && errorPeek.error.message.includes('model:')) ||
+          response.status === 404;
 
         if (isModelError) {
           // List of fallback candidates in order of general accessibility
-          const fallbackCandidates = ['claude-3-haiku-20240307', 'claude-3-5-sonnet-20241022'];
+          const fallbackCandidates = ['claude-3-haiku-20240307', 'claude-3-5-sonnet-20241022', 'claude-3-sonnet-20240229'];
           for (const fallback of fallbackCandidates) {
             if (!attemptedModels.includes(fallback)) {
               console.warn(
-                `Anthropic model "${targetModel}" not recognized/available, trying fallback "${fallback}"...`
+                `Anthropic model "${targetModel}" returned ${errorPeek.error?.type || response.status}, retrying with fallback "${fallback}"...`
               );
               attemptedModels.push(fallback);
               const retryRes = await callAnthropic(fallback);

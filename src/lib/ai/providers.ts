@@ -16,7 +16,7 @@ export const SUPPORTED_MODELS: ModelMeta[] = [
     id: 'claude-5-5-haiku',
     name: 'Claude Haiku 5.5',
     provider: 'anthropic',
-    apiModelId: 'claude-3-5-haiku-20241022',
+    apiModelId: 'claude-3-haiku-20240307',
     contextWindow: 500000,
     maxOutputTokens: 8192,
     costPer1kPromptUsd: 0.001,
