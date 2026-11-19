@@ -65,10 +65,10 @@ export function AiConfigModal({
 
   // Common official API model IDs for quick selection
   const anthropicPresets = [
-    { label: 'Claude 3 Haiku (Universale)', id: 'claude-3-haiku-20240307', desc: 'Compatibile con tutti gli account e Tier' },
-    { label: 'Claude 3.5 Sonnet', id: 'claude-3-5-sonnet-20241022', desc: 'Coding & analisi avanzata' },
-    { label: 'Claude 3.5 Haiku', id: 'claude-3-5-haiku-20241022', desc: 'Solo account con crediti Tier 1+' },
-    { label: 'Claude 3 Opus', id: 'claude-3-opus-20240229', desc: 'Massimo ragionamento' },
+    { label: 'Claude Haiku 5.5', id: 'claude-haiku-5-5', desc: 'Ultra-veloce ed efficiente' },
+    { label: 'Claude Sonnet 5.5', id: 'claude-sonnet-5-5', desc: 'Coding & analisi bilanciata' },
+    { label: 'Claude Opus 5.5', id: 'claude-opus-5-5', desc: 'Massimo ragionamento' },
+    { label: 'Claude Fable 5.2', id: 'claude-fable-5-2', desc: 'Ricerca avanzata & multi-agente' },
   ];
 
   return (

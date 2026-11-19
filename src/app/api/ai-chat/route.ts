@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const meta = getModelMeta(model || 'gpt-6-luna');
+      const meta = getModelMeta(model || 'gpt-4o');
       let targetModel = customApiModel?.trim() || meta.apiModelId || 'gpt-4o';
 
       const messages: Array<{ role: string; content: string }> = [];
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
       };
 
       let response = await callOpenAI(targetModel);
-      let attemptedModels = [targetModel];
+      const attemptedModels = [targetModel];
 
       // Fallback if model not found
       if (!response.ok && targetModel !== 'gpt-4o') {
@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
               rawError: errorData,
               hint:
                 rawMessage.includes('model')
-                  ? 'Il modello specificato non è disponibile per la tua API key OpenAI. Prova a specificare un modello alternativo nelle impostazioni.'
+                  ? 'Il modello specificato non è disponibile per la tua API key OpenAI. Prova a selezionare GPT-4o o GPT-4o Mini nelle impostazioni.'
                   : 'Verifica la validità della chiave API e la disponibilità di crediti OpenAI.',
             },
           },
@@ -195,8 +195,30 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const meta = getModelMeta(model || 'claude-5-5-haiku');
-      let targetModel = customApiModel?.trim() || meta.apiModelId || 'claude-3-5-haiku-20241022';
+      const meta = getModelMeta(model || 'claude-haiku-5-5');
+      let targetModel = customApiModel?.trim() || meta.apiModelId || 'claude-haiku-5-5';
+
+      // Auto-sanitize obsolete/legacy 3.x or alias model strings
+      if (
+        targetModel === 'claude-3-haiku-20240307' ||
+        targetModel === 'claude-3-5-haiku-20241022' ||
+        targetModel === 'claude-5-5-haiku'
+      ) {
+        targetModel = 'claude-haiku-5-5';
+      } else if (
+        targetModel === 'claude-3-5-sonnet-20241022' ||
+        targetModel === 'claude-3-sonnet-20240229' ||
+        targetModel === 'claude-5-5-sonnet'
+      ) {
+        targetModel = 'claude-sonnet-5-5';
+      } else if (
+        targetModel === 'claude-3-opus-20240229' ||
+        targetModel === 'claude-5-5-opus'
+      ) {
+        targetModel = 'claude-opus-5-5';
+      } else if (targetModel === 'claude-5-2-fable') {
+        targetModel = 'claude-fable-5-2';
+      }
 
       const callAnthropic = async (modelName: string) => {
         const bodyPayload: Record<string, unknown> = {
@@ -224,7 +246,7 @@ export async function POST(req: NextRequest) {
       let response = await callAnthropic(targetModel);
       const attemptedModels = [targetModel];
 
-      // If Anthropic returns model not found (e.g. 404 not_found_error, 400 invalid_request_error, or "model: ..."), automatically try official fallbacks
+      // If Anthropic returns model not found (e.g. 404 not_found_error, 400 invalid_request_error, or "model: ..."), automatically try official 5.x fallbacks
       if (!response.ok) {
         const errorPeek = await response.clone().json().catch(() => ({}));
         const isModelError =
@@ -234,8 +256,8 @@ export async function POST(req: NextRequest) {
           response.status === 404;
 
         if (isModelError) {
-          // List of fallback candidates in order of general accessibility
-          const fallbackCandidates = ['claude-3-haiku-20240307', 'claude-3-5-sonnet-20241022', 'claude-3-sonnet-20240229'];
+          // List of fallback candidates in order of 5.x availability
+          const fallbackCandidates = ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5', 'claude-fable-5-2'];
           for (const fallback of fallbackCandidates) {
             if (!attemptedModels.includes(fallback)) {
               console.warn(
@@ -259,16 +281,16 @@ export async function POST(req: NextRequest) {
           errorData.error?.message || `Errore Claude (${response.status}): ${response.statusText}`;
 
         let hint = 'Controlla che la chiave API sia corretta e che il tuo account Anthropic abbia crediti.';
-        if (rawMessage.includes('model:')) {
-          hint = `Anthropic ha rifiutato l'identificativo '${targetModel}'. Molti account Anthropic (Tier 1 o con credito prepagato limitato) non hanno accesso a Claude 3.5 Haiku, ma possono accedere a 'claude-3-haiku-20240307' o 'claude-3-5-sonnet-20241022'. Puoi personalizzare il codice esatto nelle impostazioni avanzate.`;
+        if (rawMessage.includes('model:') || errorData.error?.type === 'not_found_error') {
+          hint = `Anthropic ha rifiutato l'identificativo '${targetModel}'. I modelli supportati tramite API sono: claude-haiku-5-5, claude-sonnet-5-5, claude-opus-5-5 e claude-fable-5-2. Verifica nella console Anthropic i modelli abilitati per la tua API key.`;
         } else if (errorData.error?.type === 'authentication_error') {
-          hint = 'La chiave API Anthropic fornita non è valida o è scaduta.';
+          hint = 'La chiave API Anthropic fornita non è valida o è scaduta. Controlla la Claude Console (https://platform.claude.com/dashboard).';
         } else if (
           rawMessage.includes('credit') ||
           rawMessage.includes('balance') ||
           rawMessage.includes('quota')
         ) {
-          hint = 'Il saldo crediti del tuo account Anthropic è esaurito.';
+          hint = 'Il saldo crediti del tuo account Anthropic è esaurito. Effettua una ricarica nella console Anthropic.';
         }
 
         return NextResponse.json(
