@@ -15,7 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import { DeanonymizationResult } from '@/lib/anonymizer/types';
-import { marked } from 'marked';
+import { renderMarkdownToHtml } from '@/lib/markdown';
 
 interface AiResponseViewerProps {
   rawResponse: string;
@@ -54,16 +54,11 @@ export function AiResponseViewer({
   const restorationsCount = deanonymizedResult ? deanonymizedResult.restorationsCount : 0;
   const currentTextToDisplay = activeTab === 'restored' ? restoredText : rawResponse;
 
-  // Render markdown safely
+  // Render markdown with self-contained, zero-dependency renderer
   const parsedHtml = useMemo(() => {
     if (!currentTextToDisplay) return '';
     try {
-      const raw = marked.parse(currentTextToDisplay, {
-        async: false,
-        gfm: true,
-        breaks: true,
-      }) as string;
-      return raw.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+      return renderMarkdownToHtml(currentTextToDisplay);
     } catch (err) {
       console.error('Markdown parse error:', err);
       return '';
