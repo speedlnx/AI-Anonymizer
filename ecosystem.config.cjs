@@ -1,8 +1,11 @@
+const path = require('path');
+
 module.exports = {
   apps: [
     {
       name: 'ai-anonymizer',
-      script: 'node_modules/next/dist/bin/next',
+      cwd: __dirname,
+      script: path.join(__dirname, 'node_modules/next/dist/bin/next'),
       args: 'start -p 3000',
       instances: 1,
       autorestart: true,
