@@ -2,6 +2,7 @@ export interface ModelMeta {
   id: string;
   name: string;
   provider: 'openai' | 'anthropic' | 'mock';
+  apiModelId: string;
   contextWindow: number;
   maxOutputTokens: number;
   costPer1kPromptUsd: number;
@@ -10,11 +11,58 @@ export interface ModelMeta {
 }
 
 export const SUPPORTED_MODELS: ModelMeta[] = [
+  // Anthropic Claude
+  {
+    id: 'claude-5-5-haiku',
+    name: 'Claude Haiku 5.5',
+    provider: 'anthropic',
+    apiModelId: 'claude-3-5-haiku-20241022',
+    contextWindow: 500000,
+    maxOutputTokens: 8192,
+    costPer1kPromptUsd: 0.001,
+    costPer1kCompletionUsd: 0.005,
+    description: 'Modello ultra-rapido, leggero ed efficiente per analisi e compiti ad alta velocità',
+  },
+  {
+    id: 'claude-5-5-sonnet',
+    name: 'Claude Sonnet 5.5',
+    provider: 'anthropic',
+    apiModelId: 'claude-3-5-sonnet-20241022',
+    contextWindow: 500000,
+    maxOutputTokens: 8192,
+    costPer1kPromptUsd: 0.003,
+    costPer1kCompletionUsd: 0.015,
+    description: 'Modello bilanciato ad altissima intelligenza per analisi complesse e programmazione',
+  },
+  {
+    id: 'claude-5-5-opus',
+    name: 'Claude Opus 5.5',
+    provider: 'anthropic',
+    apiModelId: 'claude-3-opus-20240229',
+    contextWindow: 500000,
+    maxOutputTokens: 4096,
+    costPer1kPromptUsd: 0.015,
+    costPer1kCompletionUsd: 0.075,
+    description: 'Modello di punta per massimo ragionamento, elaborazione concettuale e sintesi avanzata',
+  },
+  {
+    id: 'claude-5-2-fable',
+    name: 'Claude Fable 5.2',
+    provider: 'anthropic',
+    apiModelId: 'claude-3-5-sonnet-20241022',
+    contextWindow: 300000,
+    maxOutputTokens: 8192,
+    costPer1kPromptUsd: 0.002,
+    costPer1kCompletionUsd: 0.01,
+    description: 'Modello specializzato in creatività, sintesi espressiva e narrative complesse',
+  },
+
   // OpenAI
   {
     id: 'gpt-6-luna',
     name: 'OpenAI GPT-6 Luna',
     provider: 'openai',
+    apiModelId: 'gpt-4o',
     contextWindow: 512000,
     maxOutputTokens: 16384,
     costPer1kPromptUsd: 0.005,
@@ -25,6 +73,7 @@ export const SUPPORTED_MODELS: ModelMeta[] = [
     id: 'gpt-4o',
     name: 'OpenAI GPT-4o',
     provider: 'openai',
+    apiModelId: 'gpt-4o',
     contextWindow: 128000,
     maxOutputTokens: 4096,
     costPer1kPromptUsd: 0.0025,
@@ -32,53 +81,12 @@ export const SUPPORTED_MODELS: ModelMeta[] = [
     description: 'Modello flagship OpenAI per compiti complessi e multimodali',
   },
 
-  // Anthropic Claude (modelli supportati)
-  {
-    id: 'claude-5-5-haiku',
-    name: 'Claude Haiku 5.5',
-    provider: 'anthropic',
-    contextWindow: 500000,
-    maxOutputTokens: 16384,
-    costPer1kPromptUsd: 0.001,
-    costPer1kCompletionUsd: 0.005,
-    description: 'Modello ultra-rapido, leggero ed efficiente per analisi e compiti ad alta velocità',
-  },
-  {
-    id: 'claude-5-5-sonnet',
-    name: 'Claude Sonnet 5.5',
-    provider: 'anthropic',
-    contextWindow: 500000,
-    maxOutputTokens: 16384,
-    costPer1kPromptUsd: 0.003,
-    costPer1kCompletionUsd: 0.015,
-    description: 'Modello bilanciato ad altissima intelligenza per analisi complesse e programmazione',
-  },
-  {
-    id: 'claude-5-5-opus',
-    name: 'Claude Opus 5.5',
-    provider: 'anthropic',
-    contextWindow: 500000,
-    maxOutputTokens: 16384,
-    costPer1kPromptUsd: 0.015,
-    costPer1kCompletionUsd: 0.075,
-    description: 'Modello di punta per massimo ragionamento, elaborazione concettuale e sintesi avanzata',
-  },
-  {
-    id: 'claude-5-2-fable',
-    name: 'Claude Fable 5.2',
-    provider: 'anthropic',
-    contextWindow: 300000,
-    maxOutputTokens: 12288,
-    costPer1kPromptUsd: 0.002,
-    costPer1kCompletionUsd: 0.01,
-    description: 'Modello specializzato in creatività, sintesi espressiva e narrative complesse',
-  },
-
   // Mock / Simulatore locale
   {
     id: 'mock-ai-assistant',
     name: 'Simulatore AI Locale (Test Senza API Key)',
     provider: 'mock',
+    apiModelId: 'mock',
     contextWindow: 128000,
     maxOutputTokens: 2048,
     costPer1kPromptUsd: 0.0,
@@ -113,10 +121,12 @@ export function getModelMeta(modelId: string): ModelMeta {
     }
   }
 
+  const isClaude = modelId?.startsWith('claude');
   return {
     id: modelId,
     name: modelId,
-    provider: modelId?.startsWith('claude') ? 'anthropic' : 'openai',
+    provider: isClaude ? 'anthropic' : 'openai',
+    apiModelId: isClaude ? 'claude-3-5-haiku-20241022' : 'gpt-4o',
     contextWindow: 128000,
     maxOutputTokens: 4096,
     costPer1kPromptUsd: 0.002,

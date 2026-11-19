@@ -71,24 +71,40 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Chiave API OpenAI non fornita.' }, { status: 400 });
       }
 
-      const messages = [];
+      const meta = getModelMeta(model || 'gpt-6-luna');
+      const targetModel = meta.apiModelId || model || 'gpt-4o';
+
+      const messages: Array<{ role: string; content: string }> = [];
       if (systemPrompt && systemPrompt.trim()) {
         messages.push({ role: 'system', content: systemPrompt });
       }
       messages.push({ role: 'user', content: prompt });
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey.trim()}`,
-        },
-        body: JSON.stringify({
-          model: model || 'gpt-4o-mini',
-          messages,
-          temperature,
-        }),
-      });
+      const callOpenAI = async (modelName: string) => {
+        return fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey.trim()}`,
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages,
+            temperature,
+          }),
+        });
+      };
+
+      let response = await callOpenAI(targetModel);
+
+      // Fallback if model not found
+      if (!response.ok && targetModel !== 'gpt-4o') {
+        const errorPeek = await response.clone().json().catch(() => ({}));
+        if (errorPeek.error?.code === 'model_not_found' || errorPeek.error?.message?.includes('model')) {
+          console.warn(`OpenAI model "${targetModel}" not found, falling back to gpt-4o`);
+          response = await callOpenAI('gpt-4o');
+        }
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -115,7 +131,7 @@ export async function POST(req: NextRequest) {
           completionTokens: usage.completion_tokens,
           totalTokens: usage.total_tokens,
         },
-        model: data.model || model,
+        model: data.model || meta.name || model,
       });
     }
 
@@ -126,26 +142,41 @@ export async function POST(req: NextRequest) {
       }
 
       const meta = getModelMeta(model || 'claude-5-5-haiku');
-      const bodyPayload: Record<string, unknown> = {
-        model: model || 'claude-5-5-haiku',
-        max_tokens: meta.maxOutputTokens || 4096,
-        temperature,
-        messages: [{ role: 'user', content: prompt }],
+      const targetModel = meta.apiModelId || 'claude-3-5-haiku-20241022';
+
+      const callAnthropic = async (modelName: string) => {
+        const bodyPayload: Record<string, unknown> = {
+          model: modelName,
+          max_tokens: meta.maxOutputTokens || 4096,
+          temperature,
+          messages: [{ role: 'user', content: prompt }],
+        };
+
+        if (systemPrompt && systemPrompt.trim()) {
+          bodyPayload.system = systemPrompt;
+        }
+
+        return fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey.trim(),
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify(bodyPayload),
+        });
       };
 
-      if (systemPrompt && systemPrompt.trim()) {
-        bodyPayload.system = systemPrompt;
-      }
+      let response = await callAnthropic(targetModel);
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey.trim(),
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify(bodyPayload),
-      });
+      // If Anthropic returns model not found (e.g. 400 "model: ..."), automatically try official fallback
+      if (!response.ok && targetModel !== 'claude-3-5-haiku-20241022') {
+        const errorPeek = await response.clone().json().catch(() => ({}));
+        if (errorPeek.error?.message?.includes('model:')) {
+          console.warn(`Anthropic model "${targetModel}" not recognized, falling back to claude-3-5-haiku-20241022`);
+          response = await callAnthropic('claude-3-5-haiku-20241022');
+        }
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -174,7 +205,7 @@ export async function POST(req: NextRequest) {
           completionTokens,
           totalTokens: promptTokens + completionTokens,
         },
-        model: data.model || model,
+        model: data.model || meta.name || model,
       });
     }
 
