@@ -13,7 +13,16 @@ import { AnonymizerEngine } from '@/lib/anonymizer/engine';
 import { EntityMapping, CustomRule, TokenUsageStats, DeanonymizationResult } from '@/lib/anonymizer/types';
 import { SamplePrompt, SAMPLE_PROMPTS } from '@/lib/anonymizer/samples';
 import { getModelMeta, estimateTokenCount, SUPPORTED_MODELS } from '@/lib/ai/providers';
-import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Bug,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Check,
+  Settings2,
+} from 'lucide-react';
 
 export default function Home() {
   // State for prompt texts
@@ -30,6 +39,7 @@ export default function Home() {
   // AI Configuration state
   const [aiProvider, setAiProvider] = useState<'openai' | 'anthropic' | 'mock'>('mock');
   const [aiModel, setAiModel] = useState<string>('mock-ai-assistant');
+  const [customApiModel, setCustomApiModel] = useState<string>('');
   const [aiApiKey, setAiApiKey] = useState<string>('');
 
   // AI execution state
@@ -38,6 +48,9 @@ export default function Home() {
   const [deanonymizedResult, setDeanonymizedResult] = useState<DeanonymizationResult | null>(null);
   const [aiLatencyMs, setAiLatencyMs] = useState<number | undefined>(undefined);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<Record<string, unknown> | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
+  const [copiedDebug, setCopiedDebug] = useState(false);
   const [securityNotification, setSecurityNotification] = useState<string | null>(null);
 
   // Always-visible Token usage stats
@@ -68,6 +81,7 @@ export default function Home() {
     try {
       const savedProvider = localStorage.getItem('anonymizer_ai_provider');
       const savedModel = localStorage.getItem('anonymizer_ai_model');
+      const savedCustomApiModel = localStorage.getItem('anonymizer_custom_api_model');
       const savedKey = localStorage.getItem('anonymizer_ai_key');
       const savedCustomRules = localStorage.getItem('anonymizer_custom_rules');
 
@@ -85,6 +99,7 @@ export default function Home() {
         setAiModel(availableForProvider[0].id);
       }
 
+      if (savedCustomApiModel) setCustomApiModel(savedCustomApiModel);
       if (savedKey) setAiApiKey(savedKey);
       if (savedCustomRules) {
         setCustomRules(JSON.parse(savedCustomRules));
@@ -99,12 +114,14 @@ export default function Home() {
     try {
       localStorage.setItem('anonymizer_ai_provider', aiProvider);
       localStorage.setItem('anonymizer_ai_model', aiModel);
+      if (customApiModel) localStorage.setItem('anonymizer_custom_api_model', customApiModel);
+      else localStorage.removeItem('anonymizer_custom_api_model');
       if (aiApiKey) localStorage.setItem('anonymizer_ai_key', aiApiKey);
       localStorage.setItem('anonymizer_custom_rules', JSON.stringify(customRules));
     } catch (e) {
       console.warn('Could not write to localStorage', e);
     }
-  }, [aiProvider, aiModel, aiApiKey, customRules]);
+  }, [aiProvider, aiModel, customApiModel, aiApiKey, customRules]);
 
   // Keep tokenStats updated with current model metadata
   useEffect(() => {
@@ -270,6 +287,9 @@ export default function Home() {
     }
 
     setIsSendingAi(true);
+    setErrorMessage(null);
+    setDebugInfo(null);
+    setShowDebug(false);
     const startTime = Date.now();
 
     try {
@@ -289,6 +309,7 @@ export default function Home() {
             'Sei un assistente AI professionale e accurato. Rispondi in italiano mantenendo inalterati i codici e le etichette segnaposto (come [CODICE_FISCALE_X], [IBAN_X], [EMAIL_X], ecc.) esattamente nella forma in cui ti sono stati forniti.',
           provider: aiProvider,
           model: aiModel,
+          customApiModel: customApiModel || undefined,
           apiKey: aiApiKey,
           forbiddenSecrets,
         }),
@@ -299,7 +320,17 @@ export default function Home() {
       setAiLatencyMs(latency);
 
       if (!res.ok) {
-        throw new Error(data.error || `Errore richiesta AI (${res.status})`);
+        setErrorMessage(data.error || `Errore richiesta AI (${res.status})`);
+        if (data.debug) {
+          setDebugInfo(data.debug);
+        } else {
+          setDebugInfo({
+            httpStatus: res.status,
+            statusText: res.statusText,
+            rawError: data,
+          });
+        }
+        return;
       }
 
       const receivedContent = data.content || '';
@@ -346,7 +377,9 @@ export default function Home() {
       );
     } catch (err: unknown) {
       console.error('Send to AI error:', err);
-      setErrorMessage(err instanceof Error ? err.message : 'Errore sconosciuto durante la chiamata AI.');
+      const msg = err instanceof Error ? err.message : 'Errore sconosciuto durante la chiamata AI.';
+      setErrorMessage(msg);
+      setDebugInfo({ exception: msg });
     } finally {
       setIsSendingAi(false);
     }
@@ -376,12 +409,101 @@ export default function Home() {
 
         {/* Notifications & Security Alerts */}
         {errorMessage && (
-          <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 text-red-800 dark:text-red-200 flex items-start gap-3 text-xs shadow-xs animate-in fade-in duration-200">
-            <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <strong className="font-bold">Attenzione: </strong>
-              <span>{errorMessage}</span>
+          <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 text-red-800 dark:text-red-200 text-xs shadow-xs space-y-3 animate-in fade-in duration-200">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="font-bold">Attenzione: </strong>
+                  <span>{errorMessage}</span>
+                </div>
+              </div>
+
+              {debugInfo && (
+                <button
+                  type="button"
+                  onClick={() => setShowDebug(!showDebug)}
+                  className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-red-100 hover:bg-red-200 dark:bg-red-900/60 dark:hover:bg-red-900 text-red-900 dark:text-red-100 transition-colors shrink-0"
+                >
+                  <Bug className="w-3.5 h-3.5" />
+                  <span>{showDebug ? 'Nascondi Debug' : 'Mostra Debug'}</span>
+                  {showDebug ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+              )}
             </div>
+
+            {/* Collapsible Debug Panel */}
+            {debugInfo && showDebug && (
+              <div className="bg-red-100/70 dark:bg-red-950/80 rounded-xl p-3 border border-red-200/80 dark:border-red-800/80 space-y-2.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[11px] uppercase tracking-wider text-red-900 dark:text-red-300 flex items-center gap-1.5">
+                    <Bug className="w-3.5 h-3.5" />
+                    Dettagli Tecnici & Risposta API Provider
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(JSON.stringify(debugInfo, null, 2));
+                      setCopiedDebug(true);
+                      setTimeout(() => setCopiedDebug(false), 2000);
+                    }}
+                    className="flex items-center gap-1 text-[11px] font-medium text-red-700 dark:text-red-300 hover:underline"
+                  >
+                    {copiedDebug ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedDebug ? 'Copiato!' : 'Copia Dati Debug'}</span>
+                  </button>
+                </div>
+
+                {typeof debugInfo.hint === 'string' && (
+                  <div className="p-2.5 rounded-lg bg-white/70 dark:bg-slate-900/70 border border-red-200 dark:border-red-900/50 text-[11px] leading-relaxed text-red-950 dark:text-red-200">
+                    💡 <strong>Suggerimento:</strong> {debugInfo.hint}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] font-mono">
+                  {Boolean(debugInfo.httpStatus) && (
+                    <div className="p-1.5 bg-white/60 dark:bg-slate-900/60 rounded border border-red-200/50 dark:border-red-900/40">
+                      <span className="text-slate-500 block text-[9px] uppercase">HTTP Status</span>
+                      <span className="font-bold">
+                        {String(debugInfo.httpStatus)} {String(debugInfo.statusText || '')}
+                      </span>
+                    </div>
+                  )}
+                  {Boolean(debugInfo.apiModelAttempted) && (
+                    <div className="p-1.5 bg-white/60 dark:bg-slate-900/60 rounded border border-red-200/50 dark:border-red-900/40">
+                      <span className="text-slate-500 block text-[9px] uppercase">Modello Tentato</span>
+                      <span className="font-bold">{String(debugInfo.apiModelAttempted)}</span>
+                    </div>
+                  )}
+                  {Boolean(debugInfo.provider) && (
+                    <div className="p-1.5 bg-white/60 dark:bg-slate-900/60 rounded border border-red-200/50 dark:border-red-900/40">
+                      <span className="text-slate-500 block text-[9px] uppercase">Provider</span>
+                      <span className="font-bold uppercase">{String(debugInfo.provider)}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase font-mono block mb-1">
+                    Payload Risposta Grezza dal Server:
+                  </span>
+                  <pre className="p-2.5 rounded-lg bg-slate-900 text-slate-100 font-mono text-[10px] overflow-x-auto max-h-48 leading-snug">
+                    {JSON.stringify(debugInfo.rawError || debugInfo, null, 2)}
+                  </pre>
+                </div>
+
+                <div className="pt-1 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setIsAiConfigOpen(true)}
+                    className="flex items-center gap-1 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors"
+                  >
+                    <Settings2 className="w-3.5 h-3.5" />
+                    <span>Apri Configurazione Modello</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -445,6 +567,8 @@ export default function Home() {
         onChangeModel={setAiModel}
         apiKey={aiApiKey}
         onChangeApiKey={setAiApiKey}
+        customApiModel={customApiModel}
+        onChangeCustomApiModel={setCustomApiModel}
       />
 
       <PrivacyModal

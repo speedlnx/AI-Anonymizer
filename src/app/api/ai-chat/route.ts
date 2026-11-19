@@ -6,6 +6,7 @@ interface RequestBody {
   systemPrompt?: string;
   provider: 'openai' | 'anthropic' | 'mock';
   model: string;
+  customApiModel?: string;
   apiKey?: string;
   temperature?: number;
   forbiddenSecrets?: string[];
@@ -14,22 +15,38 @@ interface RequestBody {
 export async function POST(req: NextRequest) {
   try {
     const body: RequestBody = await req.json();
-    const { prompt, systemPrompt, provider, model, apiKey, temperature = 0.7, forbiddenSecrets = [] } = body;
+    const {
+      prompt,
+      systemPrompt,
+      provider,
+      model,
+      customApiModel,
+      apiKey,
+      temperature = 0.7,
+      forbiddenSecrets = [],
+    } = body;
 
     if (!prompt || typeof prompt !== 'string') {
-      return NextResponse.json({ error: 'Prompt mancante o non valido.' }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'Prompt mancante o non valido.',
+          debug: { reason: 'MISSING_PROMPT' },
+        },
+        { status: 400 }
+      );
     }
 
     // --- ZERO-LEAK SECURITY VERIFICATION ---
-    // Assert that no unanonymized sensitive entity exists in the prompt being sent out!
     if (Array.isArray(forbiddenSecrets) && forbiddenSecrets.length > 0) {
       for (const secret of forbiddenSecrets) {
         if (secret && typeof secret === 'string' && secret.trim().length >= 4) {
           if (prompt.includes(secret.trim())) {
             return NextResponse.json(
               {
-                error: 'SECURITY_ALERT: Rilevato dato non anonimizzato nel payload in uscita! Invio bloccato per sicurezza.',
+                error:
+                  'SECURITY_ALERT: Rilevato dato non anonimizzato nel payload in uscita! Invio bloccato per sicurezza.',
                 leakedSecretPreview: `${secret.slice(0, 3)}***`,
+                debug: { reason: 'ZERO_LEAK_TRIGGERED' },
               },
               { status: 403 }
             );
@@ -38,9 +55,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // --- MOCK PROVIDER (For testing without requiring a paid key) ---
+    // --- MOCK PROVIDER (Test locale senza API key) ---
     if (provider === 'mock') {
-      // Find tags in the prompt
       const tagMatches = prompt.match(/\[[A-Z_]+_\d+\]/g) || [];
       const uniqueTags = Array.from(new Set(tagMatches));
 
@@ -68,11 +84,17 @@ export async function POST(req: NextRequest) {
     // --- OPENAI INTEGRATION ---
     if (provider === 'openai') {
       if (!apiKey || apiKey.trim() === '') {
-        return NextResponse.json({ error: 'Chiave API OpenAI non fornita.' }, { status: 400 });
+        return NextResponse.json(
+          {
+            error: 'Chiave API OpenAI non fornita.',
+            debug: { provider: 'openai', reason: 'MISSING_API_KEY' },
+          },
+          { status: 400 }
+        );
       }
 
       const meta = getModelMeta(model || 'gpt-6-luna');
-      const targetModel = meta.apiModelId || model || 'gpt-4o';
+      let targetModel = customApiModel?.trim() || meta.apiModelId || 'gpt-4o';
 
       const messages: Array<{ role: string; content: string }> = [];
       if (systemPrompt && systemPrompt.trim()) {
@@ -96,21 +118,47 @@ export async function POST(req: NextRequest) {
       };
 
       let response = await callOpenAI(targetModel);
+      let attemptedModels = [targetModel];
 
       // Fallback if model not found
       if (!response.ok && targetModel !== 'gpt-4o') {
         const errorPeek = await response.clone().json().catch(() => ({}));
-        if (errorPeek.error?.code === 'model_not_found' || errorPeek.error?.message?.includes('model')) {
-          console.warn(`OpenAI model "${targetModel}" not found, falling back to gpt-4o`);
-          response = await callOpenAI('gpt-4o');
+        if (
+          errorPeek.error?.code === 'model_not_found' ||
+          errorPeek.error?.message?.includes('model')
+        ) {
+          console.warn(`OpenAI model "${targetModel}" not found, retrying with "gpt-4o"...`);
+          attemptedModels.push('gpt-4o');
+          const retryRes = await callOpenAI('gpt-4o');
+          if (retryRes.ok) {
+            response = retryRes;
+            targetModel = 'gpt-4o';
+          }
         }
       }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        const rawMessage =
+          errorData.error?.message || `Errore OpenAI (${response.status}): ${response.statusText}`;
+
         return NextResponse.json(
           {
-            error: errorData.error?.message || `Errore OpenAI (${response.status}): ${response.statusText}`,
+            error: `Errore OpenAI: ${rawMessage}`,
+            debug: {
+              provider: 'openai',
+              endpoint: 'https://api.openai.com/v1/chat/completions',
+              httpStatus: response.status,
+              statusText: response.statusText,
+              modelRequested: model,
+              apiModelAttempted: targetModel,
+              allAttemptedModels: attemptedModels,
+              rawError: errorData,
+              hint:
+                rawMessage.includes('model')
+                  ? 'Il modello specificato non è disponibile per la tua API key OpenAI. Prova a specificare un modello alternativo nelle impostazioni.'
+                  : 'Verifica la validità della chiave API e la disponibilità di crediti OpenAI.',
+            },
           },
           { status: response.status }
         );
@@ -138,11 +186,17 @@ export async function POST(req: NextRequest) {
     // --- ANTHROPIC CLAUDE INTEGRATION ---
     if (provider === 'anthropic') {
       if (!apiKey || apiKey.trim() === '') {
-        return NextResponse.json({ error: 'Chiave API Anthropic Claude non fornita.' }, { status: 400 });
+        return NextResponse.json(
+          {
+            error: 'Chiave API Anthropic Claude non fornita.',
+            debug: { provider: 'anthropic', reason: 'MISSING_API_KEY' },
+          },
+          { status: 400 }
+        );
       }
 
       const meta = getModelMeta(model || 'claude-5-5-haiku');
-      const targetModel = meta.apiModelId || 'claude-3-5-haiku-20241022';
+      let targetModel = customApiModel?.trim() || meta.apiModelId || 'claude-3-5-haiku-20241022';
 
       const callAnthropic = async (modelName: string) => {
         const bodyPayload: Record<string, unknown> = {
@@ -168,21 +222,67 @@ export async function POST(req: NextRequest) {
       };
 
       let response = await callAnthropic(targetModel);
+      const attemptedModels = [targetModel];
 
-      // If Anthropic returns model not found (e.g. 400 "model: ..."), automatically try official fallback
-      if (!response.ok && targetModel !== 'claude-3-5-haiku-20241022') {
+      // If Anthropic returns model not found (e.g. 400 "model: ..."), automatically try official fallbacks
+      if (!response.ok) {
         const errorPeek = await response.clone().json().catch(() => ({}));
-        if (errorPeek.error?.message?.includes('model:')) {
-          console.warn(`Anthropic model "${targetModel}" not recognized, falling back to claude-3-5-haiku-20241022`);
-          response = await callAnthropic('claude-3-5-haiku-20241022');
+        const isModelError =
+          errorPeek.error?.type === 'invalid_request_error' &&
+          errorPeek.error?.message?.includes('model:');
+
+        if (isModelError) {
+          // List of fallback candidates in order of general accessibility
+          const fallbackCandidates = ['claude-3-haiku-20240307', 'claude-3-5-sonnet-20241022'];
+          for (const fallback of fallbackCandidates) {
+            if (!attemptedModels.includes(fallback)) {
+              console.warn(
+                `Anthropic model "${targetModel}" not recognized/available, trying fallback "${fallback}"...`
+              );
+              attemptedModels.push(fallback);
+              const retryRes = await callAnthropic(fallback);
+              if (retryRes.ok) {
+                response = retryRes;
+                targetModel = fallback;
+                break;
+              }
+            }
+          }
         }
       }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        const rawMessage =
+          errorData.error?.message || `Errore Claude (${response.status}): ${response.statusText}`;
+
+        let hint = 'Controlla che la chiave API sia corretta e che il tuo account Anthropic abbia crediti.';
+        if (rawMessage.includes('model:')) {
+          hint = `Anthropic ha rifiutato l'identificativo '${targetModel}'. Molti account Anthropic (Tier 1 o con credito prepagato limitato) non hanno accesso a Claude 3.5 Haiku, ma possono accedere a 'claude-3-haiku-20240307' o 'claude-3-5-sonnet-20241022'. Puoi personalizzare il codice esatto nelle impostazioni avanzate.`;
+        } else if (errorData.error?.type === 'authentication_error') {
+          hint = 'La chiave API Anthropic fornita non è valida o è scaduta.';
+        } else if (
+          rawMessage.includes('credit') ||
+          rawMessage.includes('balance') ||
+          rawMessage.includes('quota')
+        ) {
+          hint = 'Il saldo crediti del tuo account Anthropic è esaurito.';
+        }
+
         return NextResponse.json(
           {
-            error: errorData.error?.message || `Errore Claude (${response.status}): ${response.statusText}`,
+            error: `Errore Anthropic Claude: ${rawMessage}`,
+            debug: {
+              provider: 'anthropic',
+              endpoint: 'https://api.anthropic.com/v1/messages',
+              httpStatus: response.status,
+              statusText: response.statusText,
+              modelRequested: model,
+              apiModelAttempted: targetModel,
+              allAttemptedModels: attemptedModels,
+              rawError: errorData,
+              hint,
+            },
           },
           { status: response.status }
         );
@@ -209,11 +309,22 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ error: `Provider "${provider}" non supportato.` }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: `Provider "${provider}" non supportato.`,
+        debug: { provider },
+      },
+      { status: 400 }
+    );
   } catch (error: unknown) {
     console.error('API Chat Error:', error);
     const message = error instanceof Error ? error.message : 'Errore interno del server';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: message,
+        debug: { exception: message },
+      },
+      { status: 500 }
+    );
   }
 }
-

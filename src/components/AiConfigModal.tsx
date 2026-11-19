@@ -4,15 +4,16 @@ import React, { useState } from 'react';
 import {
   X,
   Key,
-  Cpu,
   ShieldCheck,
   Eye,
   EyeOff,
-  Check,
   Info,
   Zap,
+  ChevronDown,
+  ChevronUp,
+  Settings2,
 } from 'lucide-react';
-import { SUPPORTED_MODELS, ModelMeta } from '@/lib/ai/providers';
+import { SUPPORTED_MODELS } from '@/lib/ai/providers';
 
 interface AiConfigModalProps {
   isOpen: boolean;
@@ -23,6 +24,8 @@ interface AiConfigModalProps {
   onChangeModel: (model: string) => void;
   apiKey: string;
   onChangeApiKey: (apiKey: string) => void;
+  customApiModel: string;
+  onChangeCustomApiModel: (val: string) => void;
 }
 
 export function AiConfigModal({
@@ -34,8 +37,11 @@ export function AiConfigModal({
   onChangeModel,
   apiKey,
   onChangeApiKey,
+  customApiModel,
+  onChangeCustomApiModel,
 }: AiConfigModalProps) {
   const [showKey, setShowKey] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const currentModels = SUPPORTED_MODELS.filter((m) => m.provider === provider);
 
@@ -54,6 +60,16 @@ export function AiConfigModal({
       onChangeModel(available[0].id);
     }
   };
+
+  const selectedModelMeta = currentModels.find((m) => m.id === model);
+
+  // Common official API model IDs for quick selection
+  const anthropicPresets = [
+    { label: 'Claude 3.5 Haiku', id: 'claude-3-5-haiku-20241022', desc: 'Veloce & intelligente' },
+    { label: 'Claude 3 Haiku', id: 'claude-3-haiku-20240307', desc: 'Compatibile con tutti i tier' },
+    { label: 'Claude 3.5 Sonnet', id: 'claude-3-5-sonnet-20241022', desc: 'Coding & analisi avanzata' },
+    { label: 'Claude 3 Opus', id: 'claude-3-opus-20240229', desc: 'Massimo ragionamento' },
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
@@ -133,7 +149,7 @@ export function AiConfigModal({
           {/* Model Selection */}
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Modello AI
+              Modello Selezionato
             </label>
             <div className="space-y-1.5">
               {currentModels.map((m) => (
@@ -142,14 +158,14 @@ export function AiConfigModal({
                   onClick={() => onChangeModel(m.id)}
                   className={`p-3 rounded-xl border cursor-pointer transition-all ${
                     model === m.id
-                      ? 'border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/20 text-slate-900 dark:text-white'
+                      ? 'border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/20 text-slate-900 dark:text-white ring-1 ring-indigo-500/50'
                       : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-xs">{m.name}</span>
-                    <span className="text-[10px] text-slate-400">
-                      Finestra: {(m.contextWindow / 1000).toFixed(0)}k token
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      Finestra: {(m.contextWindow / 1000).toFixed(0)}k tok
                     </span>
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -189,7 +205,9 @@ export function AiConfigModal({
               <div className="flex items-start gap-1.5 text-[11px] text-slate-500 mt-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Massima Privacy:</strong> Il prompt viene trasmesso al provider <u>esclusivamente in forma anonimizzata</u>. Nessun codice fiscale, IBAN o dato originale lascia mai il dispositivo in chiaro.
+                  <strong>Massima Privacy:</strong> Il prompt viene trasmesso al provider{' '}
+                  <u>esclusivamente in forma anonimizzata</u>. Nessun codice fiscale, IBAN o dato
+                  originale lascia mai il dispositivo in chiaro.
                 </span>
               </div>
             </div>
@@ -199,6 +217,85 @@ export function AiConfigModal({
               <span>
                 Il simulatore locale permette di testare immediatamente l'intero ciclo: anonimizzazione prompt, ricezione risposta AI mock con etichette, e ripristino automatico dei dati reali. Nessuna API key richiesta.
               </span>
+            </div>
+          )}
+
+          {/* Advanced / Debug Options */}
+          {provider !== 'mock' && (
+            <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="w-full px-4 py-2.5 bg-slate-50/70 dark:bg-slate-800/40 flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Settings2 className="w-3.5 h-3.5 text-indigo-500" />
+                  Opzioni Avanzate & Routing API Modello
+                </span>
+                {showAdvanced ? (
+                  <ChevronUp className="w-4 h-4 text-slate-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                )}
+              </button>
+
+              {showAdvanced && (
+                <div className="p-4 space-y-3 bg-white dark:bg-slate-900 text-xs">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">
+                      Identificativo API inviato al provider (override facoltativo):
+                    </label>
+                    <input
+                      type="text"
+                      value={customApiModel}
+                      onChange={(e) => onChangeCustomApiModel(e.target.value)}
+                      placeholder={selectedModelMeta?.apiModelId || 'ID API standard...'}
+                      className="w-full px-3 py-1.5 text-xs font-mono bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                      Di default invia:{' '}
+                      <code className="text-indigo-600 dark:text-indigo-400 font-mono">
+                        {customApiModel || selectedModelMeta?.apiModelId || 'automatico'}
+                      </code>
+                    </p>
+                  </div>
+
+                  {provider === 'anthropic' && (
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] font-medium text-slate-500">
+                        Modelli Anthropic predefiniti (clicca per impostare rapidamente):
+                      </span>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {anthropicPresets.map((preset) => (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => onChangeCustomApiModel(preset.id)}
+                            className={`p-2 text-left rounded-lg border transition-all text-[11px] ${
+                              (customApiModel || selectedModelMeta?.apiModelId) === preset.id
+                                ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-950 dark:text-indigo-200 font-bold'
+                                : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            <div className="font-mono text-[10px] truncate">{preset.id}</div>
+                            <div className="text-[9px] text-slate-400">{preset.desc}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {customApiModel && (
+                    <button
+                      type="button"
+                      onClick={() => onChangeCustomApiModel('')}
+                      className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline"
+                    >
+                      Ripristina identificativo automatico
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -216,4 +313,3 @@ export function AiConfigModal({
     </div>
   );
 }
-
